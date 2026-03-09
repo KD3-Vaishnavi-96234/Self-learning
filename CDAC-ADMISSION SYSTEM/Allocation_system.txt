@@ -1,0 +1,277 @@
+CDAC_allocation_system  --- databases name
+   ├── Cadidates    -----tbl1
+   ├── course       -----tbl2
+   ├── center       -----tbl3
+   ├── coursecenters-----tbl4  
+   ├── preferences  -----tbl5
+   └── allocation   -----tbl6
+
+Table	Relationship
+Candidates → Preferences	One candidate can have many preferences
+                                (candidate_id FK, UNIQUE(candidate_id, pref_order))
+
+Courses → CourseCenters	        One course offered in many centers
+                                (course_id FK, UNIQUE(course_id, center_id))
+
+Centers → CourseCenters	        One center offers many courses
+                                (center_id FK)
+
+Candidates → Allocations	One candidate gets one final seat
+                                (candidate_id UNIQUE FK)
+
+CourseCenters → Allocations	One course-center allocated to many candidates
+                                (course_center_id FK)
+
+CourseCenters → Preferences	Many candidates prefer same course-center
+                                (course_center_id FK)
+
+
+
+
+------------------------tbl creation -----------------------------------
+
+1)  Candidates table 1----->  candidate_id (pk)
+
+CREATE TABLE Candidates (
+    form_no INT PRIMARY KEY AUTO_INCREMENT,
+    cc_rank INT NOT NULL UNIQUE CHECK (cc_rank > 0), 
+    name VARCHAR(100) NOT NULL,
+    category ENUM('A+B') DEFAULT 'A+B'
+);
+
+Alter Table Candidates AUTO_INCREMENT=20001;
+
+
+2) courses tbl 2---------> course_id (pk)
+
+CREATE TABLE Courses (
+    course_id INT PRIMARY KEY AUTO_INCREMENT,
+    course_name VARCHAR(100) NOT NULL UNIQUE,
+    category ENUM('A+B') NOT NULL DEFAULT 'A+B'
+);
+
+3)centers tbl 3 ---------->  (center_id) (pk)
+
+CREATE TABLE Centers (
+    center_id INT PRIMARY KEY AUTO_INCREMENT,
+    center_name VARCHAR(100) NOT NULL UNIQUE,
+    total_seats INT NOT NULL CHECK (total_seats > 0)
+);
+
+4)CourseCenter------------> ((course_id, center_id)) (pk)
+ 
+CREATE TABLE CourseCenters (
+    course_center_id INT PRIMARY KEY AUTO_INCREMENT,
+    course_id INT,           -- FK Courses
+    center_id INT,           -- FK Centers
+    seats_available INT NOT NULL  CHECK (seats_available >= 0),
+    FOREIGN KEY(course_id) REFERENCES Courses(course_id),
+    FOREIGN KEY(center_id) REFERENCES Centers(center_id),
+    UNIQUE(course_id, center_id)  -- Composite key
+);
+
+5) preferences tbl 5-------------> (form_no, pref_order) (pk)
+
+CREATE TABLE Preferences (
+    pref_id INT PRIMARY KEY AUTO_INCREMENT,
+    form_no INT,        -- FK Candidates
+    course_center_id INT,    -- FK CourseCenters
+    pref_order INT NOT NULL CHECK (pref_order >= 1),
+    FOREIGN KEY(form_no) REFERENCES Candidates(form_no),
+    UNIQUE(form_no, pref_order)  -- Composite
+);
+
+
+6)  allocations tbl 6 -------> form_no (pK)  [One student → one seat]
+
+CREATE TABLE Allocations (
+    allocation_id INT PRIMARY KEY AUTO_INCREMENT,
+    form_no INT UNIQUE,     -- One per candidate in Round 1
+    center_id INT,        -- FK CourseCenters
+
+    foreign key(center_id) references Centers(center_id),
+    FOREIGN KEY(form_no) REFERENCES Candidates(form_no)
+);
+
+--------------------------------------------------------------------------------------------------------
+---------------INSERTION--------------------
+1.Candidate table 1
+INSERT INTO Candidates (cc_rank, name, category) VALUES
+ ('Vaishnavi Jaju', 'A+B'),
+ ('Sneha Patil', 'A+B'),
+ ('Neha Deshmukh', 'A+B'),
+ ('Priya Kulkarni', 'A+B'),
+ ('Sumeet Shrivas', 'A+B');  
+
+2.ceneter table 2
+INSERT INTO Centers (center_name, total_seats) VALUES
+('Sunbeam Pune', 9),
+('Sunbeam Karad',9);
+
+3.Courses (3 A+B Courses)
+
+INSERT INTO Courses (course_name, category) VALUES
+('PG-Diploma in Advanced Computing (PG-DAC)', 'A+B'),
+('PG-Diploma in Big Data Analytics (PG-DBDA)', 'A+B'),
+('PG-Diploma in DITISS (PG-DITISS)', 'A+B');
+
+4.CourseCenter
+INSERT INTO CourseCenters (course_id, center_id, seats_available) VALUES
+(1, 1, 3), 
+(1, 2, 3),  
+(2, 1, 3),  
+(2, 2, 3),  
+(3, 1, 3), 
+(3, 2, 3);  
+
+5.Prefernces 
+INSERT INTO Preferences (form_no, course_center_id, pref_order) VALUES
+
+-- Vaishnavi Jaju (form_no=20001, cc_rank=1): Pune preference → Karad
+(20001, 1, 1),  -- 1st: DAC Pune [course_center_id=1]  
+(20001, 2, 2),  -- 2nd: DBDA Pune [2]
+(20001, 3, 3),  -- 3rd: DITISS Pune [3]
+(20001, 4, 4),  -- 4th: DAC Karad [4]
+(20001, 5, 5),  -- 5th: DBDA Karad [5]
+(20001, 6, 6),  -- 6th: DITISS Karad [6]
+
+-- Sneha Patil (form_no=20002, cc_rank=5): Karad preference → Pune
+(20002, 5, 1),  -- 1st: DBDA Karad [5]
+(20002, 6, 2),  -- 2nd: DITISS Karad [6]
+(20002, 4, 3),  -- 3rd: DAC Karad [4]
+(20002, 1, 4),  -- 4th: DAC Pune [1]
+(20002, 2, 5),  -- 5th: DBDA Pune [2]
+(20002, 3, 6),  -- 6th: DITISS Pune [3]
+
+-- Neha Deshmukh (form_no=20003, cc_rank=10): Mixed Karad→Pune
+(20003, 4, 1),  -- 1st: DAC Karad [4]
+(20003, 5, 2),  -- 2nd: DBDA Karad [5]
+(20003, 1, 3),  -- 3rd: DAC Pune [1]
+(20003, 2, 4),  -- 4th: DBDA Pune [2]
+(20003, 6, 5),  -- 5th: DITISS Karad [6]
+(20003, 3, 6),  -- 6th: DITISS Pune [3]
+
+-- Priya Kulkarni (form_no=20004, cc_rank=15): Pune preference
+(20004, 3, 1),  -- 1st: DITISS Pune [3]
+(20004, 2, 2),  -- 2nd: DBDA Pune [2]
+(20004, 1, 3),  -- 3rd: DAC Pune [1]
+(20004, 6, 4),  -- 4th: DITISS Karad [6]
+(20004, 5, 5),  -- 5th: DBDA Karad [5]
+(20004, 4, 6),  -- 6th: DAC Karad [4]
+
+--Sumeet Shrivas (form_no=20005, cc_rank=20): Karad preference
+(20005, 5, 1),  -- 1st: DBDA Karad [5]
+(20005, 4, 2),  -- 2nd: DAC Karad [4]
+(20005, 6, 3),  -- 3rd: DITISS Karad [6]
+(20005, 2, 4),  -- 4th: DBDA Pune [2]
+(20005, 1, 5),  -- 5th: DAC Pune [1]
+(20005, 3, 6);  -- 6th: DITISS Pune [3]
+
+-------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+_-----------------------------STORED PROCEDURE------------------------------------------------
+
+DELIMITER $$
+
+-- FINAL Stored Procedure for Sunbeam CDAC Allocations (Single Round - A+B Category)
+-- Processes candidates by cc_rank, allocates highest preference with available seats
+
+CREATE PROCEDURE Sunbeam_Round1_Allocation()
+BEGIN
+    -- Variable declarations
+    DECLARE v_done INT DEFAULT FALSE;
+    DECLARE v_form_no INT;
+    DECLARE v_course_center_id INT;
+    DECLARE v_center_id INT;
+    DECLARE v_seats_available INT;
+    DECLARE v_pref_order INT DEFAULT 1;
+    DECLARE v_total_allocations INT DEFAULT 0;
+    
+    -- Cursor: Process candidates by merit (cc_rank ASC)
+    DECLARE candidate_cursor CURSOR FOR
+        SELECT form_no 
+        FROM Candidates 
+        WHERE category = 'A+B'
+        ORDER BY cc_rank ASC;
+    
+    -- Control structures and error handling
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_done = TRUE;
+    DECLARE CONTINUE HANDLER FOR SQLEXCEPTION 
+    BEGIN
+        ROLLBACK;
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Allocation transaction failed - rolled back';
+    END;
+    
+    -- Start atomic transaction for all allocations
+    START TRANSACTION;
+    
+    -- Open cursor and process candidates
+    OPEN candidate_cursor;
+    
+    candidate_loop: LOOP
+        -- Fetch next candidate by merit order
+        FETCH candidate_cursor INTO v_form_no;
+        IF v_done THEN
+            LEAVE candidate_loop;
+        END IF;
+        
+        -- Reset preference order for each candidate
+        SET v_pref_order = 1;
+        
+        -- Try preferences in order until seat found (REPEAT loop)
+        preference_loop: REPEAT
+            -- Find candidate's preference with available seats
+            SELECT cc.course_center_id, cc.center_id, cc.seats_available
+            INTO v_course_center_id, v_center_id, v_seats_available
+            FROM Preferences p
+            INNER JOIN CourseCenters cc ON p.course_center_id = cc.course_center_id
+            WHERE p.form_no = v_form_no 
+              AND p.pref_order = v_pref_order 
+              AND cc.seats_available > 0
+            LIMIT 1;
+            
+            -- IF seat available: Allocate!
+            IF v_course_center_id IS NOT NULL AND v_seats_available > 0 THEN
+                -- Insert allocation record
+                INSERT INTO Allocations (form_no, center_id) 
+                VALUES (v_form_no, v_center_id);
+                
+                -- Deduct one seat using CASE statement
+                CASE v_seats_available
+                    WHEN 1 THEN 
+                        UPDATE CourseCenters SET seats_available = 0 
+                        WHERE course_center_id = v_course_center_id;
+                    ELSE 
+                        UPDATE CourseCenters SET seats_available = seats_available - 1 
+                        WHERE course_center_id = v_course_center_id;
+                END CASE;
+                
+                SET v_total_allocations = v_total_allocations + 1;
+                LEAVE preference_loop;  -- Success, move to next candidate
+            END IF;
+            
+            -- Next preference
+            SET v_pref_order = v_pref_order + 1;
+            
+            -- Exit if all preferences exhausted
+            IF v_pref_order > 6 THEN
+                LEAVE preference_loop;
+            END IF;
+            
+        UNTIL v_course_center_id IS NOT NULL END REPEAT;
+        
+    END LOOP;
+    
+    CLOSE candidate_cursor;
+    COMMIT;
+    
+    -- Final results summary
+    SELECT 'ALLOCATION_COMPLETE' AS Status,
+           v_total_allocations AS 'Seats_Allocated',
+           (SELECT COUNT(*) FROM Allocations) AS 'Allocations_Table_Count',
+           'Sunbeam Pune+Karad - A+B Category - FINAL' AS Message;
+    
+END$$
+
+DELIMITER ;
